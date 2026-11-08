@@ -25,7 +25,11 @@ impl Launcher {
     pub(super) fn play_as(&mut self, who: Player) {
         let mut accounts = Accounts::load();
         let done = accounts
-            .play_as_with(account::store(), who, self.settings.dev_offline)
+            .play_as_with(
+                account::store(),
+                who,
+                backend::offline_without_owner(self.settings.dev_offline),
+            )
             .and_then(|()| accounts.save());
         match done {
             Ok(()) => self.accounts = accounts,

@@ -1313,6 +1313,31 @@ fn minecraft_folders() -> Vec<PathBuf> {
     found
 }
 
+/// Whether `dir` is a Minecraft install: `versions/<id>/<id>.json`, the layout the official
+/// launcher and the others share.
+pub(crate) fn install_has_version(dir: &Path) -> bool {
+    let Ok(entries) = fs::read_dir(dir.join("versions")) else {
+        return false;
+    };
+    entries.flatten().any(|entry| {
+        let id = entry.file_name();
+        let id = id.to_string_lossy();
+        entry.path().join(format!("{id}.json")).is_file()
+    })
+}
+
+/// A Minecraft install the launcher already knows how to reuse (the chosen folder, the official
+/// launcher, Prism, MultiMC, and the rest of [`minecraft_folders`]).
+pub fn has_local_minecraft() -> bool {
+    minecraft_folders().iter().any(|dir| install_has_version(dir))
+}
+
+/// Play without a Microsoft owner: the hidden developer option, or a game install already on
+/// this machine. Downloads stay on the strict gate ([`download_for_owner`]).
+pub fn offline_without_owner(dev_offline: bool) -> bool {
+    dev_offline || has_local_minecraft()
+}
+
 /// The official launcher's game directory, else the first other launcher's found
 /// (sources.rs); preparing looks in all of them anyway.
 pub fn default_minecraft_dir() -> Option<PathBuf> {
@@ -2306,8 +2331,11 @@ pub fn need_prepared(tag: &str) -> Result<(), String> {
 /// the gate, a sign-in that can't be renewed (no network, expired) still lets the game start,
 /// offline.
 pub fn client(tag: &str) -> Result<Command, String> {
-    let (session, offline) = account::session_for_game(&game_home(), false)
-        .map_err(|refused| format!("{refused} Sign in with `horizon-launcher account sign-in`."))?;
+    let (session, offline) = account::session_for_game(
+        &game_home(),
+        offline_without_owner(Settings::load().dev_offline),
+    )
+    .map_err(|refused| format!("{refused} Sign in with `horizon-launcher account sign-in`."))?;
     need_prepared(tag)?;
     complete_assets(tag);
     crate::browser::horizon::before_play(&game_home());
@@ -3206,6 +3234,26 @@ mod tests {
         assert_eq!(program_mod_api_level(&marked), 7);
         assert_eq!(program_mod_api_level(&old), 0);
         assert_eq!(program_mod_api_level(&dir.join("missing")), 0);
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// A local install is `versions/<id>/<id>.json`. An empty folder, or a json whose name does
+    /// not match its version directory, is not one.
+    #[test]
+    fn a_local_install_is_a_version_json() {
+        let dir = std::env::temp_dir().join(format!(
+            "horizon-local-install-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        assert!(!install_has_version(&dir));
+        fs::create_dir_all(dir.join("versions/26.3")).unwrap();
+        assert!(!install_has_version(&dir));
+        fs::write(dir.join("versions/26.3/other.json"), "{}").unwrap();
+        assert!(!install_has_version(&dir));
+        fs::write(dir.join("versions/26.3/26.3.json"), "{}").unwrap();
+        assert!(install_has_version(&dir));
         fs::remove_dir_all(&dir).unwrap();
     }
 

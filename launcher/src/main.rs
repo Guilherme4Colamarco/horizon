@@ -824,8 +824,8 @@ impl Launcher {
                                 continue;
                             }
                         };
-                        // Past the gate by the developer option alone is no owner.
-                        if !self.settings.dev_offline {
+                        // Past the gate by the developer option, or by a local install, is no owner.
+                        if !backend::offline_without_owner(self.settings.dev_offline) {
                             self.owner = Some(true);
                         }
                         if let Some(file) = file {
@@ -1356,7 +1356,7 @@ impl Launcher {
         self.starting_client = Some(tag.clone());
         self.play_pressed = Some(Instant::now());
         let tx = self.tx.clone();
-        let offline_without_owner = self.settings.dev_offline;
+        let offline_without_owner = backend::offline_without_owner(self.settings.dev_offline);
         std::thread::spawn(move || {
             backend::complete_assets(&tag);
             let session = account::session_for_game(&backend::game_home(), offline_without_owner);

@@ -1697,6 +1697,11 @@ fn update(check: bool, as_json: bool) -> Result<(), String> {
     Ok(())
 }
 
+/// Offline names without a Microsoft owner: the developer option, or a game install already here.
+fn offline_ok() -> bool {
+    backend::offline_without_owner(backend::Settings::load().dev_offline)
+}
+
 /// `account …`: names and UUIDs only; tokens are never printed.
 fn account_command(action: AccountCmd, as_json: bool) -> Result<(), String> {
     let mut accounts = Accounts::load();
@@ -1786,7 +1791,7 @@ fn account_command(action: AccountCmd, as_json: bool) -> Result<(), String> {
                 ),
                 (None, None) => return Err(find(&accounts, &who).unwrap_err()),
             };
-            accounts.play_as(account::store(), player)?;
+            accounts.play_as_with(account::store(), player, offline_ok())?;
             accounts.save()?;
             println!("The game plays as {name}.");
         }
@@ -1795,7 +1800,7 @@ fn account_command(action: AccountCmd, as_json: bool) -> Result<(), String> {
                 Some(n) => account::Player::Offline(n),
                 None => account::Player::GameName,
             };
-            accounts.play_as(account::store(), player)?;
+            accounts.play_as_with(account::store(), player, offline_ok())?;
             accounts.save()?;
             match accounts.name_arg() {
                 Some(n) => println!("The game plays offline as {n}."),
