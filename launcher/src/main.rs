@@ -1257,7 +1257,9 @@ impl Launcher {
                                 continue;
                             }
                         };
-                        self.owner = Some(true);
+                        if file.is_some() {
+                            self.owner = Some(true);
+                        }
                         if let Some(file) = file {
                             cmd.arg("--session-file").arg(file);
                         }
@@ -1941,7 +1943,7 @@ impl Launcher {
                 }
             }
             backend::play_step("reading the sign-in");
-            let session = account::session_for_game(&backend::game_home());
+            let session = backend::game_session();
             backend::play_step("starting the game");
             let _ = tx.send(Msg::Session(session));
         });
@@ -3400,7 +3402,11 @@ impl Launcher {
         // Not prepared: an owner can have Horizon download Minecraft from Mojang; without an
         // owner there is nothing to play, so signing in comes first.
         let first = (!prepared && !self.preparing)
-            .then_some(self.owner)
+            .then_some(if backend::has_local_minecraft() {
+                None
+            } else {
+                self.owner
+            })
             .flatten();
         // No launcher folder with Minecraft on this computer: an owner needs none.
         let no_install = self.settings.minecraft_dir.is_none();
@@ -3551,7 +3557,7 @@ impl Launcher {
         // account that owns the game (Play needs one), or offline. The glass look's top bar has
         // Sign in with Microsoft and says Offline itself.
         if !t.glass {
-            if self.owner == Some(false) {
+            if self.owner == Some(false) && !backend::has_local_minecraft() {
                 rows = rows.child(index_row(
                     5,
                     tr("Microsoft account"),

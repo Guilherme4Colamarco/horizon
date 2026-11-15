@@ -190,7 +190,7 @@ fn meta_client_jar(base: &Path, version: &str) -> Option<String> {
 }
 
 /// Where launchers keep the client jar, relative to the folder holding their `libraries`.
-fn client_jars(base: &Path, version: &str) -> Vec<String> {
+pub(crate) fn client_jars(base: &Path, version: &str) -> Vec<String> {
     let v = version;
     let mut jars: Vec<String> = meta_client_jar(base, v).into_iter().collect();
     for jar in [

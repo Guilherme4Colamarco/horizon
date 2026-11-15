@@ -2057,6 +2057,41 @@ fn minecraft_folders() -> Vec<PathBuf> {
     found
 }
 
+/// A local client jar is only a preliminary check; preparation verifies its hash and
+/// checks the rest of the required game files before starting the game.
+fn install_has_26_3(dir: &Path) -> bool {
+    [
+        dir.to_path_buf(),
+        dir.join("meta"),
+        dir.join("data"),
+        dir.join("datastore"),
+    ]
+    .iter()
+    .any(|base| {
+        sources::client_jars(base, "26.3")
+            .iter()
+            .any(|jar| base.join(jar).is_file())
+    })
+}
+
+pub fn has_local_minecraft() -> bool {
+    minecraft_folders().iter().any(|dir| install_has_26_3(dir))
+}
+
+pub fn game_session() -> Result<account::GameSession, account::NoOwner> {
+    let local = has_local_minecraft();
+    if local && account::Accounts::load().selected().is_none() {
+        return Ok(account::GameSession::default());
+    }
+    account::session_for_game(&game_home()).or_else(|error| {
+        if local {
+            Ok(account::GameSession::default())
+        } else {
+            Err(error)
+        }
+    })
+}
+
 /// The official launcher's game directory, else the first other launcher's found
 /// (sources.rs); preparing looks in all of them anyway.
 pub fn default_minecraft_dir() -> Option<PathBuf> {
@@ -3181,7 +3216,7 @@ pub fn client_as(tag: &str, who: Option<&str>) -> Result<Command, String> {
     play_step("reading the sign-in");
     let hint = |refused: String| format!("{refused} {}", crate::i18n::tr(SIGN_IN_HINT));
     let session = match who {
-        None => account::session_for_game(&game_home()).map_err(|refused| {
+        None => game_session().map_err(|refused| {
             // A keyring that didn't answer isn't a missing sign-in (#12179).
             match refused.keyring {
                 Some(why) => why,
@@ -4633,6 +4668,21 @@ mod java_tests;
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn local_gate_requires_a_26_3_client_jar() {
+        let dir = std::env::temp_dir().join(format!("horizon-local-26-3-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("versions/26.3")).unwrap();
+        std::fs::write(dir.join("versions/26.3/26.3.json"), "{}").unwrap();
+        assert!(!super::install_has_26_3(&dir));
+        std::fs::create_dir_all(dir.join("versions/26.2")).unwrap();
+        std::fs::write(dir.join("versions/26.2/26.2.jar"), "other").unwrap();
+        assert!(!super::install_has_26_3(&dir));
+        std::fs::write(dir.join("versions/26.3/26.3.jar"), "local").unwrap();
+        assert!(super::install_has_26_3(&dir));
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
     use super::*;
     use std::cmp::Ordering::*;
     use std::ffi::OsStr;
