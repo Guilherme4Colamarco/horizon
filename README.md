@@ -8,8 +8,11 @@ sua própria cópia do jogo; este projeto não distribui seus arquivos.
 O launcher procura o cliente 26.3 nas pastas locais conhecidas ou na pasta
 selecionada, e prepara os recursos necessários a partir da instalação. O login
 Microsoft continua disponível para os fluxos de download do launcher original.
-A detecção local passou em teste unitário; o fluxo completo pelo Prisma e os
-pacotes para distribuição ainda precisam ser validados antes de uma release.
+O fluxo sem conta foi testado em uma VM Fedora 43 com XFCE e KVM: usando
+arquivos locais completos, o launcher preparou os recursos e abriu o cliente
+Horizon. O caso de instalação incompleta também foi testado e informou os
+arquivos faltantes. Os pacotes para distribuição ainda precisam ser validados
+antes de uma release.
 
 ## Sobre o projeto original
 

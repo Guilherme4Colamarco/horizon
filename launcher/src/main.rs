@@ -2563,11 +2563,11 @@ fn sign_in_change(shown: &mut Option<SignInState>, next: SignInState) -> Option<
 }
 
 /// `owner`: whether an account here owns the game, by the keychain (`Launcher::owner`).
-fn play_press(prepared: bool, owner: Option<bool>, busy: bool) -> PlayPress {
+fn play_press(prepared: bool, owner: Option<bool>, local: bool, busy: bool) -> PlayPress {
     match (prepared, owner) {
         _ if busy => PlayPress::Nothing,
         (true, _) => PlayPress::Play,
-        (false, Some(true)) => PlayPress::PrepareThenPlay,
+        (false, _) if local || owner == Some(true) => PlayPress::PrepareThenPlay,
         (false, _) => PlayPress::Nothing,
     }
 }
@@ -2576,7 +2576,7 @@ fn play_press(prepared: bool, owner: Option<bool>, busy: bool) -> PlayPress {
 /// code, a pack's Play) starts it now: only when Play would play. Never while a preparation runs:
 /// the game would open on half-written files.
 fn starts_now(prepared: bool, preparing: bool, running: bool) -> bool {
-    play_press(prepared, None, preparing || running) == PlayPress::Play
+    play_press(prepared, None, false, preparing || running) == PlayPress::Play
 }
 
 /// Whether `tag` can start being deleted now: it is installed, no install is writing it, and it
@@ -5921,22 +5921,39 @@ mod tests {
         );
     }
 
-    /// An owner's Play works on a version not prepared yet: it prepares it (downloading
-    /// Minecraft from Mojang when this computer has no install), then plays. Without an owner
-    /// it stays off: signing in comes first.
+    /// Play prepares a local installation without an account, or uses an owning account.
+    /// Without either source, or while busy, it stays disabled.
     #[test]
     fn play_prepares_first_for_an_owner() {
-        use super::{play_press, PlayPress};
-        assert_eq!(play_press(true, Some(true), false), PlayPress::Play);
-        assert_eq!(play_press(true, None, false), PlayPress::Play);
         assert_eq!(
-            play_press(false, Some(true), false),
+            play_press(false, None, true, false),
             PlayPress::PrepareThenPlay
         );
-        assert_eq!(play_press(false, Some(false), false), PlayPress::Nothing);
-        assert_eq!(play_press(false, None, false), PlayPress::Nothing);
-        assert_eq!(play_press(false, Some(true), true), PlayPress::Nothing);
-        assert_eq!(play_press(true, Some(true), true), PlayPress::Nothing);
+        assert_eq!(
+            play_press(false, Some(false), true, false),
+            PlayPress::PrepareThenPlay
+        );
+        assert_eq!(play_press(false, None, true, true), PlayPress::Nothing);
+        use super::{play_press, PlayPress};
+        assert_eq!(play_press(true, Some(true), false, false), PlayPress::Play);
+        assert_eq!(play_press(true, None, false, false), PlayPress::Play);
+        assert_eq!(
+            play_press(false, Some(true), false, false),
+            PlayPress::PrepareThenPlay
+        );
+        assert_eq!(
+            play_press(false, Some(false), false, false),
+            PlayPress::Nothing
+        );
+        assert_eq!(play_press(false, None, false, false), PlayPress::Nothing);
+        assert_eq!(
+            play_press(false, Some(true), false, true),
+            PlayPress::Nothing
+        );
+        assert_eq!(
+            play_press(true, Some(true), false, true),
+            PlayPress::Nothing
+        );
     }
 
     /// A server's Join (and every other shortcut) waits like Play: not while the version's
