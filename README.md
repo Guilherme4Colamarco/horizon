@@ -1,3 +1,18 @@
+# Horizon Offline
+
+Horizon Offline é um fork do [Horizon](https://github.com/horizon-rust/horizon)
+que busca usar uma instalação local do Minecraft Java 26.3, inclusive do Prisma
+Launcher, sem exigir um segundo login Microsoft no Horizon. Você precisa ter
+sua própria cópia do jogo; este projeto não distribui seus arquivos.
+
+O launcher procura o cliente 26.3 nas pastas locais conhecidas ou na pasta
+selecionada, e prepara os recursos necessários a partir da instalação. O login
+Microsoft continua disponível para os fluxos de download do launcher original.
+A detecção local passou em teste unitário; o fluxo completo pelo Prisma e os
+pacotes para distribuição ainda precisam ser validados antes de uma release.
+
+## Sobre o projeto original
+
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/media/readme/title-dark.png">
