@@ -14,6 +14,22 @@ Horizon. O caso de instalação incompleta também foi testado e informou os
 arquivos faltantes. Os pacotes para distribuição ainda precisam ser validados
 antes de uma release.
 
+## Downloads do Horizon Offline
+
+Os pacotes publicados ficam em [Releases deste fork](https://github.com/Guilherme4Colamarco/horizon/releases).
+A geração em andamento pode ser acompanhada em [Actions](https://github.com/Guilherme4Colamarco/horizon/actions/workflows/offline-release.yml).
+
+- Windows x64 e ARM64: executável portátil, instalador e ZIP.
+- macOS Intel e Apple Silicon: app em ZIP e DMG, com assinatura ad hoc.
+- Linux x86_64: tar.gz e AppImage; Debian/Ubuntu em .deb, Void glibc em .xbps,
+  AerynOS em .stone. O pacote Void não atende instalações musl.
+
+Os builds Offline desativam a atualização automática do launcher para preservar
+a alteração deste fork; o cliente do jogo continua vindo das releases upstream.
+Os formatos de pacote têm verificações próprias, mas o teste completo em jogo
+feito até agora foi no Linux Fedora com XFCE/KVM. Os demais sistemas ainda
+precisam de validação funcional específica. Veja [empacotamento](packaging/offline/README.md).
+
 ## Sobre o projeto original
 
 <p align="center">
@@ -29,7 +45,7 @@ antes de uma release.
 </p>
 
 <p align="center">
-  <a href="https://playhorizon.dev/download"><img src="docs/media/readme/download-button.png" alt="Download the Horizon launcher for Windows, macOS and Linux" width="400"></a><br>
+  <a href="https://github.com/Guilherme4Colamarco/horizon/releases"><img src="docs/media/readme/download-button.png" alt="Download the Horizon launcher for Windows, macOS and Linux" width="400"></a><br>
   <sub>You need your own copy of Minecraft: Java Edition.</sub>
 </p>
 
