@@ -608,6 +608,7 @@ pub fn release_order(tag: &str) -> ReleaseOrder {
     }
     let semver = tag
         .strip_prefix(LAUNCHER_TAG_PREFIX)
+        .or_else(|| tag.strip_prefix("offline-v"))
         .or_else(|| tag.strip_prefix('v'))
         .and_then(semver_order);
     semver.unwrap_or_else(|| {

@@ -81,6 +81,7 @@ jobs:
         with:
           workspaces: launcher
           shared-key: offline-${{ matrix.name }}
+          cache-on-failure: true
       - name: Linux dependencies
         if: runner.os == 'Linux'
         run: |
