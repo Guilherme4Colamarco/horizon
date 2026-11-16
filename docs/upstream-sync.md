@@ -1,21 +1,19 @@
 # Sincronização do Horizon Offline
 
-O workflow `Sync Horizon upstream` verifica `horizon-rust/horizon:main` toda segunda-feira às 09h UTC e também pode ser executado manualmente na aba Actions. O GitHub pode atrasar
-execuções agendadas e desativar agendas após 60 dias de inatividade em repositórios
-públicos; nesse caso, reative o workflow na aba Actions.
+A automação de nuvem `Atualizar Horizon Offline` executa semanalmente às segundas.
+Ela busca `horizon-rust/horizon:main`, resolve conflitos e valida antes de enviar
+mudanças para `Guilherme4Colamarco/horizon:main`.
 
-A atualização usa merge em `main`, preservando os commits do fork, sem rebase nem
-force push. Se houver conflitos, nada é enviado: a execução falha e lista os
-arquivos no resumo em Actions. As notificações dependem das preferências de
-notificação do GitHub. Uma alteração concorrente em main também impede o push;
-a próxima execução tenta novamente.
+Preservar ambos os caminhos é obrigatório: jogar offline com cópia local do
+Minecraft sem login Microsoft obrigatório, e login Microsoft opcional com o fluxo
+autenticado existente. Preservar também as demais alterações do fork.
 
-Um merge sem conflitos não garante compatibilidade funcional das alterações
-offline. Revise e teste o launcher após atualizações relevantes. O push com
-GITHUB_TOKEN não dispara outros workflows de push; este fluxo não compila nem
-publica releases. Se o upstream alterar arquivos de workflow e o GitHub rejeitar
-sua atualização pelo token automático, a integração precisará ser feita
-manualmente com uma credencial autorizada.
+A integração usa merge, sem force push ou descarte de commits. Quando não puder
+validar uma correção, o agente deve salvar em branch separada e informar o bloqueio.
+Não publica releases nem inclui arquivos Mojang ou credenciais.
 
-Para pausar: Actions → Sync Horizon upstream → Disable workflow. Nenhum segredo
-pessoal adicional é necessário; a execução usa GITHUB_TOKEN com contents: write.
+O workflow GitHub `Sync Horizon upstream` permanece apenas para execução manual;
+a agenda anterior foi removida para que merges automáticos não contornem a
+validação do agente. Esse workflow manual somente faz merge sem testes funcionais
+e interrompe em conflitos. Gerencie ou pause a execução semanal nas automações
+do ChatGPT/Codex.

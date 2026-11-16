@@ -1,7 +1,6 @@
 name: Sync Horizon upstream
 on:
-  schedule:
-    - cron: '0 9 * * 1'
+  # Weekly updates are handled by the cloud agent, including conflict resolution.
   workflow_dispatch:
 permissions:
   contents: write
