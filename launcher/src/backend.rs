@@ -549,6 +549,7 @@ pub fn is_game_tag(tag: &str) -> bool {
 pub fn launcher_version(tag: &str) -> Option<&str> {
     tag.strip_prefix(LAUNCHER_TAG_PREFIX)
         .or_else(|| tag.strip_prefix(OLD_LAUNCHER_TAG_PREFIX))
+        .or_else(|| tag.strip_prefix("offline-v"))
         .filter(|v| v.starts_with(|c: char| c.is_ascii_digit()))
 }
 
