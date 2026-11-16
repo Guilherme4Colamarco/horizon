@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Horizon Offline
+Comment=Play Horizon using a local Minecraft installation
+Exec=horizon-offline
+Terminal=false
+Categories=Game;
+StartupWMClass=horizon-launcher

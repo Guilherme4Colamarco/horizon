@@ -1,0 +1,159 @@
+name: Horizon Offline packages
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Package version (numeric SemVer, for example 0.2.1)
+        required: true
+        type: string
+      publish:
+        description: Publish a GitHub release after every platform succeeds
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: offline-packages-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  HORIZON_OFFLINE_BUILD: '1'
+  HORIZON_LAUNCHER_VERSION: ${{ inputs.version }}
+  HORIZON_LAUNCHER_TAG: offline-v${{ inputs.version }}
+  HORIZON_LAUNCHER_NO_SELF_UPDATE: '1'
+  HORIZON_TELEMETRY_URL: 'off'
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-x86_64
+            os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            binary: horizon-launcher
+          - name: windows-x64
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
+            binary: horizon-launcher.exe
+            rustflags: -C target-feature=+crt-static
+          - name: windows-arm64
+            os: windows-11-vs2026-arm
+            target: aarch64-pc-windows-msvc
+            binary: horizon-launcher.exe
+            rustflags: -C target-feature=+crt-static
+          - name: macos-arm64
+            os: macos-latest
+            target: aarch64-apple-darwin
+            binary: horizon-launcher
+            arch: arm64
+          - name: macos-x64
+            os: macos-15-intel
+            target: x86_64-apple-darwin
+            binary: horizon-launcher
+            arch: x64
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    env:
+      RUSTFLAGS: ${{ matrix.rustflags }}
+      VERSION: ${{ inputs.version }}
+      BIN: target/${{ matrix.target }}/release/${{ matrix.binary }}
+    defaults:
+      run:
+        working-directory: launcher
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Validate package version
+        run: |
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo 'Use numeric SemVer'; exit 1; }
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: launcher
+          shared-key: offline-${{ matrix.name }}
+      - name: Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libxkbcommon-x11-dev libwayland-dev libx11-xcb-dev libfontconfig-dev libvulkan-dev libasound2-dev libudev-dev patchelf
+      - name: Runtime Metal shaders when compiler unavailable
+        if: runner.os == 'macOS'
+        run: |
+          if ! xcrun metal --version >/dev/null 2>&1; then
+            echo 'LAUNCHER_FEATURES=gpui_platform/runtime_shaders' >> "$GITHUB_ENV"
+          fi
+      - name: Test and build launcher
+        run: |
+          cargo test --release --locked --target '${{ matrix.target }}' ${LAUNCHER_FEATURES:+--features "$LAUNCHER_FEATURES"}
+          cargo build --release --locked --target '${{ matrix.target }}' ${LAUNCHER_FEATURES:+--features "$LAUNCHER_FEATURES"}
+          "$BIN" --version
+      - name: Package
+        run: |
+          mkdir -p out
+          case "$RUNNER_OS" in
+            Linux)
+              cp "$BIN" out/horizon-offline
+              tar -C out -czf out/horizon-offline-linux-x86_64.tar.gz horizon-offline
+              ../packaging/linux/appimage.sh "$BIN" "$VERSION" out
+              mv out/horizon-launcher-linux-x86_64.AppImage out/horizon-offline.AppImage
+              ../packaging/offline/deb.sh "$BIN" "$VERSION" out
+              ../packaging/offline/void.sh "$BIN" "$VERSION" out
+              ../packaging/aerynos/stone.sh out/horizon-offline.AppImage "$VERSION" out
+              ;;
+            Windows)
+              python ../tools/check_pe_arch.py '${{ matrix.name == 'windows-arm64' && 'arm64' || 'x64' }}' "$BIN"
+              cp "$BIN" out/horizon-offline.exe
+              # The original name selects the installer's UI when double-clicked.
+              cp "$BIN" 'out/horizon-launcher-setup-${{ matrix.name }}.exe'
+              (cd out && 7z a 'horizon-offline-${{ matrix.name }}.zip' horizon-offline.exe)
+              mv out/horizon-offline.exe 'out/horizon-offline-${{ matrix.name }}.exe'
+              ;;
+            macOS)
+              ../packaging/offline/macos.sh "$BIN" "$VERSION" out '${{ matrix.arch }}'
+              ;;
+          esac
+      - uses: actions/upload-artifact@v4
+        with:
+          name: offline-${{ matrix.name }}
+          path: launcher/out/*
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    needs: build
+    if: inputs.publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      VERSION: ${{ inputs.version }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: offline-*
+          merge-multiple: true
+          path: dist
+      - name: Publish packages with checksums
+        run: |
+          cd dist
+          rm -f horizon-offline
+          sha256sum * > SHA256SUMS
+          cat > /tmp/offline-release-notes.md <<'NOTES'
+          Horizon Offline uses your own local Minecraft Java 26.3 installation without requiring a second Microsoft login. Game files are not included.
+
+          Launcher self-update is disabled in these builds so the upstream launcher cannot replace the offline changes. The engine still comes from upstream Horizon releases.
+
+          macOS bundles are ad-hoc signed, not Developer ID notarized. Linux packages require the distribution's graphics drivers. See the README for platform validation status.
+          NOTES
+          gh release create "offline-v$VERSION" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "Horizon Offline $VERSION" --notes-file /tmp/offline-release-notes.md ./*

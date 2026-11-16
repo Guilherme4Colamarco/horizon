@@ -1,0 +1,10 @@
+[package]
+name = "horizon-stone-pack"
+version = "0.1.0"
+edition = "2024"
+license = "LGPL-3.0-or-later"
+
+[workspace]
+
+[dependencies]
+stone = { git = "https://github.com/aerynOS/os-tools", rev = "d9c7d289c0a9bd65a78fe8c532526cc21afbaaf4" }
