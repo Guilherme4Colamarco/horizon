@@ -1,0 +1,45 @@
+name: Sync Horizon upstream
+on:
+  schedule:
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: sync-horizon-upstream
+  cancel-in-progress: false
+jobs:
+  sync:
+    if: github.repository == 'Guilherme4Colamarco/horizon'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Merge upstream while preserving fork commits
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch --no-tags https://github.com/horizon-rust/horizon.git main
+          upstream_sha=$(git rev-parse FETCH_HEAD)
+          if git merge-base --is-ancestor "$upstream_sha" HEAD; then
+            echo 'Fork already contains upstream/main.' >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          if ! git merge --no-edit "$upstream_sha"; then
+            {
+              echo '## Upstream merge needs manual resolution'
+              echo 'main was not changed. No changes were pushed.'
+              echo 'Conflicting files:'
+              git diff --name-only --diff-filter=U
+            } >> "$GITHUB_STEP_SUMMARY"
+            git merge --abort
+            exit 1
+          fi
+          # Ordinary push: a concurrent change causes rejection, never history replacement.
+          git push origin HEAD:main
+          echo "Merged upstream commit $upstream_sha into main. Fork history preserved; game compatibility still requires testing." >> "$GITHUB_STEP_SUMMARY"
